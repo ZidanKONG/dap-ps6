@@ -24,9 +24,9 @@ We use (`*`) to indicate a problem that we think might be time consuming.
 # Steps to submit (10 points on PS6) {-}
 
 1. "This submission is my work alone and complies with the 30538 integrity
-policy." Add your initials to indicate your agreement: \*\*\_\_\*\*
-2. "I have uploaded the names of anyone I worked with on the problem set **[here](https://docs.google.com/forms/d/185usrCREQaUbvAXpWhChkjghdGgmAZXA3lPWpXLLsts/edit)**"  \*\*\_\_\*\* (2 point)
-3. Late coins used this pset: \*\*\_\_\*\* Late coins left after submission: \*\*\_\_\*\*
+policy." Add your initials to indicate your agreement: \*\*\ZK\*\*
+2. "I have uploaded the names of anyone I worked with on the problem set **[here](https://docs.google.com/forms/d/185usrCREQaUbvAXpWhChkjghdGgmAZXA3lPWpXLLsts/edit)**"  \*\*\ZK\*\* (2 point)
+3. Late coins used this pset: \*\*\ZK\*\* Late coins left after submission: \*\*\_\_\*\*
 
 4. Before starting the problem set, make sure to read and agree to the terms of data usage for the Waze data [here](https://canvas.uchicago.edu/courses/59054/quizzes/130617).
 
@@ -84,45 +84,216 @@ import json
 1. 
 
 ```{python}
+# get sample data
+import os
+base_path = r'/Users/kongzidan/Documents/GitHub/DAP-PS6'
+path = os.path.join(base_path, 'waze_data_sample.csv')
+df_sample = pd.read_csv(path)
 
 ```
+
+```{python}
+# drop 'ts', 'geo', 'geoWKT' columns
+sample_2 = df_sample.drop(columns=['ts', 'geo', 'geoWKT'])
+
+# define the function to get alt data type from dtype
+def altair_types(dataframe):
+    altair_type = {}
+    for column in dataframe.columns:
+        dtype = dataframe[column].dtype
+        if pd.api.types.is_numeric_dtype(dtype):
+            altair_type[column] = 'Quantitative'
+        elif pd.api.types.is_datetime64_any_dtype(dtype):
+            altair_type[column] = 'Temporal'
+        elif pd.api.types.is_categorical_dtype(dtype):
+            altair_type[column] = 'Ordinal' if dataframe[column].cat.ordered else 'Nominal'
+        else:
+            altair_type[column] = 'Nominal'
+
+    return pd.DataFrame(list(altair_type.items()), columns=['Variable', 'Altair_Type'])
+
+# call function
+result_df = altair_types(sample_2)
+print(result_df)
+
+  
+```
+
+referencing stackoverflow for cheching dtype:https://stackoverflow.com/questions/40353079/pandas-how-to-check-dtype-for-all-columns-in-a-dataframe,
+https://stackoverflow.com/questions/54426845/,how-to-check-if-a-pandas-dataframe-contains-only-numeric-values-column-wise/67950383#67950383,
+https://stackoverflow.com/questions/21030174/how-do-i-test-if-an-object-is-a-pandas-datetime-index/78482582#78482582,
+https://stackoverflow.com/questions/26924904/check-if-dataframe-column-is-categorical/26925340#26925340
+Referencing Chatgpt for mapping dtype to altair datatype, referencing chatgot for orgainzing the for loop dictionary to a dataframe.
+
 
 2. 
 
 ```{python}
+# get full data
+path2 = os.path.join(base_path, 'waze_data.csv')
+df = pd.read_csv(path2)
 
+# define function to calculate null and notnull
+
+
+def count_nulls(dataframe):
+    missing_counts = dataframe.isnull().sum()
+    non_missing_counts = dataframe.notnull().sum()
+
+    summary_df = pd.DataFrame({
+        'Variable': dataframe.columns,
+        'Missing': missing_counts.values,
+        'Not Missing': non_missing_counts.values
+    })
+    return summary_df
+
+# call function
+count_null = count_nulls(df)
+
+# plot bar chart
+chart = alt.Chart(count_null).transform_fold(
+    ['Missing', 'Not Missing'],
+    as_=['Status', 'Count']
+).mark_bar().encode(
+    alt.X('Variable:N', title='Variable'),
+    alt.Y('Count:Q', title='Number of Observations'),
+    alt.Color('Status:N',
+              scale=alt.Scale(domain=['Missing', 'Not Missing'],
+                              range=['red', 'green'])),).properties(
+    title='Stacked Bar Chart of Missing vs Non-Missing Values',
+    width=800,
+    height=400
+)
+
+chart.show()
+
+# calculating null shares
+count_null['null_share'] = count_null['Missing'] / \
+    (count_null['Missing']+count_null['Not Missing'])
+
+# sorting to get the highest null share variable
+highest_share = count_null.sort_values(by='null_share', ascending=False)
+highest_share.head(1)
 ```
+
+'nThumbsUp', 'street' and 'subtype' has the null values. 'nThumbsUp' variable has the highest share of missing value.
+
+refencing stackoveflow for drawing stacked bar chart:
+https://stackoverflow.com/questions/64418356/plot-a-trellis-stacked-bar-chart-in-altair-by-combining-column-values
+https://stackoverflow.com/questions/74283103/sort-a-stacked-bar-chart-with-transform-fold-altair
+referencing chatgpt for error, should not specify column when using .sum() default with axis=0,
 
 3. 
 
 ```{python}
+# find unique type and subtype
+unique_types = df['type'].dropna().unique()
+unique_subtypes = df['subtype'].dropna().unique()
+print(unique_types)
+print(unique_subtypes)
+# get subtype null df
+sub_na = df[df['subtype'].isna()]
+# find the type unique in subtype null df
+types_na_sub = sub_na['type'].unique()
+print(len(types_na_sub))
+# create a df that has no null value in subtype
+nosubna_df = df.dropna(subset=['subtype'])
+# find unique type-subtype pair
+no_na_type_groups = nosubna_df.groupby('type')['subtype'].unique()
+print(no_na_type_groups)
+# clean type and subtype expression
+types_subtypes = {}
+for type_val, subtypes in no_na_type_groups.items():
+    if len(subtypes) >= 2:
+        cleaned_subtypes = [subtype
+                            .replace("ACCIDENT_", "")
+                            .replace("HAZARD_", "")
+                            .replace("ROAD_CLOSED_", "")
+                            .replace("JAM_", "")
+                            .replace("_", " ")
+                            .capitalize()
+                            for subtype in subtypes
+                            ]
+        types_subtypes[type_val.capitalize()] = cleaned_subtypes
+# writing bullet list
+for type_val, subtypes in types_subtypes.items():
+    print(f"- {type_val}:")
+    for subtype in subtypes:
+        print(f"  - {subtype}")
 
 ```
+
+There are 4 types of variables that have a subtype taht is NA.
+The type that have enough information to be considered can have a sub-subtype is 'Hazard'. For example, it can create a sub-subtype under subtype of 'Hazard on road'.
+
+i condsider to keep the NA subtypes. Even though the obeservation has no information on subtypes, but it can still be verified under types. Therefore, the obeservations with NA in subtypes also mean something. i will substitute them to 'Umnclassified'.
+
+```{python}
+#fill nul with 'Unclassified'
+df['subtype'] = df['subtype'].fillna('Unclassified')
+```
+
+referencing chatgpt to understanding writing a bullet list.
 
 4. 
 
 1. 
 ```{python}
-
+#drop duplicates for type-subtype,get the type and subtype column
+crosswalk = df[['type', 'subtype']].drop_duplicates().reset_index(drop=True)
+#create three columns
+crosswalk['updated_type'] = 'TBD'
+crosswalk['updated_subtype'] = 'TBD'
+crosswalk['updated_subsubtype'] = 'TBD'
 ```
 
 2. 
 
 ```{python}
+# based on type and subtype, fillings the remaing three columns
+for index, row in crosswalk.iterrows():
+    type_value = row['type']
+    subtype_value = row['subtype']
+    # format expression
+    crosswalk.at[index, 'updated_type'] = type_value.capitalize()
 
+    # filling null with 'Unclassified'
+    if pd.isna(subtype_value):
+        crosswalk.at[index, 'updated_subtype'] = 'Unclassified'
+        crosswalk.at[index, 'updated_subsubtype'] = 'Unclassified'
+    else:
+        # if not null, find what subtype it belongs then format expression
+        cleaned_subtype = subtype_value.replace("ACCIDENT_", "").replace("HAZARD_", "").replace(
+            "ROAD_CLOSED_", "").replace("JAM_", "").replace("_", " ").capitalize()
+        crosswalk.at[index, 'updated_subtype'] = cleaned_subtype
+        # creating subsubtype
+        if "HAZARD_ON_ROAD_" in subtype_value:
+            subsubtype = subtype_value.replace(
+                "HAZARD_ON_ROAD_", "").replace("_", " ").capitalize()
+            crosswalk.at[index, 'updated_subsubtype'] = subsubtype
+        elif "HAZARD_WEATHER_" in subtype_value:
+            subsubtype = subtype_value.replace(
+                "HAZARD_WEATHER_", "").replace("_", " ").capitalize()
+            crosswalk.at[index, 'updated_subsubtype'] = subsubtype
+        else:
+            crosswalk.at[index, 'updated_subsubtype'] = 'Unclassified'
 ```
 
+referencing chatgpt to modify my for loop iterating over rows,e.g at[index,].
 3. 
 
 ```{python}
-
+# merge data
+merged_data = df.merge(crosswalk, on=['type', 'subtype'], how='left')
+# get data of Accident-Unclassified
+accident_unclassified = merged_data[
+    (merged_data['updated_type'] == 'Accident') &
+    (merged_data['updated_subtype'] == 'Unclassified')]
+print(len(accident_unclassified))
 ```
 
+There are 24359 rows are there for Accident - Unclassified.
 4. 
-
-```{python}
-
-```
 
 
 # App #1: Top Location by Alert Type Dashboard (30 points){-}
@@ -131,29 +302,89 @@ import json
 
 a. 
 ```{python}
+# extract longitutde and latitude, creating columns
+merged_data['longitude'] = merged_data['geo'].str.extract(
+    r'POINT\((-?\d+\.\d+)')
+merged_data['latitude'] = merged_data['geo'].str.extract(
+    r'POINT\(-?\d+\.\d+\s(-?\d+\.\d+)\)')
+merged_data['longitude'] = merged_data['longitude'].astype(float)
+merged_data['latitude'] = merged_data['latitude'].astype(float)
 
 ```
+
+referencing chatgpt, asking how to get latitude and longitute from the geo coordinates.
 
 b. 
 ```{python}
+# identify steo
+step = 0.01
 
+# create bins
+merged_data['latBin'] = (merged_data['latitude'] // step) * step
+merged_data['lonBin'] = (merged_data['longitude'] // step) * step
+# group by bins
+bin_groups = merged_data.groupby(
+    ['latBin', 'lonBin']).size().reset_index(name='count')
+# find the longitude-latitude bin that have greatest number of obeservations
+highest_combine = bin_groups.sort_values(by='count', ascending=False)
+highest_combine.head(1)
 ```
 
+The binned combination of (41.96,-87.75) has the greatest number of obeservations.
 
+referencing stackoverflow for binning,https://stackoverflow.com/questions/39254704/pandas-group-bins-of-data-per-longitude-latitude, searching bin latitude
 c. 
 ```{python}
+# groupby based on 'latBin', 'lonBin', 'updated_type', 'updated_subtype'
+grouped_type_bin = merged_data.groupby(
+    ['latBin', 'lonBin', 'updated_type', 'updated_subtype']).size().reset_index(name='counts')
 
+# sort by data
+sorted_type_bin = grouped_type_bin.sort_values(by='counts', ascending=False)
+# get data for chosen Accdient-Major
+acc_major_bin = sorted_type_bin[(sorted_type_bin['updated_type'] == 'Accident') & (
+    sorted_type_bin['updated_subtype'] == 'Major')]
+
+# get top 10 count bins for chosen Accdient-Major
+top_alerts_map = acc_major_bin.head(10)
+# save top 10 of Accident-Major to folder
+top_alerts_map.to_csv(
+    '/Users/kongzidan/Documents/GitHub/DAP-PS6/top_alerts_map/top_alerts_map.csv')
 ```
 
-d. 
-```{python}
+For the level of aggregation, this question is group by 4 variables of 'latBin', 'lonBin', 'updated_type' and 'updated_subtype'.
+The dataframe has 10 rows since i choose the top 10 latitude-longitude bins for Accident-Major.
 
+referencing stackoverflow for saving csv to file,https://stackoverflow.com/questions/67196334/save-the-file-in-a-different-folder-using-python,
+search save df to folder
+
+2. 
+```{python}
+# get jam_heavy counts by bins
+jam_heavy_bin = sorted_type_bin[(sorted_type_bin['updated_type'] == 'Jam') & (
+    sorted_type_bin['updated_subtype'] == 'Heavy traffic')]
+# get the top 10
+jam_heavy_10 = jam_heavy_bin.head(10)
+# plot scatter plot
+chart_jam = alt.Chart(jam_heavy_10).mark_circle().encode(
+    alt.X('lonBin:Q', title='Longitude',
+          scale=alt.Scale(domain=[-87.9, -87.5])),
+    alt.Y('latBin:Q', title='Latitude', scale=alt.Scale(domain=[41.7, 42.0])),
+    size=alt.Size('counts:Q', title='Number of Alerts')
+).properties(
+    title='Top 10 Latitude-Longitude Bins for Jam - Heavy Traffic Alerts',
+    width=800,
+    height=600
+)
+#show plot
+chart_jam.show()
 ```
 
 3. 
     
 a. 
 
+download directly from the link
 ```{python}
 
 ```
@@ -161,13 +392,12 @@ a.
 
 b. 
 ```{python}
-# MODIFY ACCORDINGLY
-file_path = "./top_alerts_map/chicago-boundaries.geojson"
+file_path = "/Users/kongzidan/Documents/GitHub/DAP-PS6/top_alerts_map/Boundaries - Neighborhoods.geojson"
 #----
 
 with open(file_path) as f:
     chicago_geojson = json.load(f)
-
+#get geo_data
 geo_data = alt.Data(values=chicago_geojson["features"])
 
 ```
@@ -175,33 +405,81 @@ geo_data = alt.Data(values=chicago_geojson["features"])
 4. 
 
 ```{python}
-
+# draw background
+background = alt.Chart(geo_data).mark_geoshape(
+    fill='lightgray',
+    stroke='white'
+).project('albersUsa')
+# draw points layer
+points = alt.Chart(jam_heavy_10).mark_circle().encode(
+    longitude='lonBin:Q',
+    latitude='latBin:Q',
+    size=alt.Size('counts:Q', title='Number of Alerts'),
+).properties(
+    title='Top 10 Jam-Heavy Traffic Alerts in Chicago'
+)
+# show plot
+background+points
 ```
+
+referencing documentation, https://altair-viz.github.io/altair-tutorial/notebooks/09-Geographic-plots.html.
 
 5. 
 
 a. 
+```{python}
+# get the selected list
+dropdown_menu = merged_data[['updated_type', 'updated_subtype']].copy()
+dropdown_menu["type_subtype"] = dropdown_menu["updated_type"] + \
+    " - " + dropdown_menu["updated_subtype"]
+dropdown_list = dropdown_menu["type_subtype"].unique()
+# don't need unclassified subtype
+dropdown_list = [item for item in dropdown_list if "Unclassified" not in item]
+print(dropdown_list)
+len(dropdown_list)
+
+```
+
+There are 28 type x subtype combinations in my dropdown menu.
+
+referencing chatgpt for adding "-" between type and subtype.
 
 ```{python}
+#save dataset
+sorted_type_bin.to_csv('/Users/kongzidan/Documents/GitHub/DAP-PS6/sorted_type_bin.csv')
+```
 
+```{python}
+![Dropdown Screenshot](dropdown screeshot.png)
 ```
 
 b. 
 ```{python}
-
+![Jam-Heavy traffic Screenshot](Jam-Heavy traffic dashboard.png)
 ```
+
+referencing chatgpt for understanding shiny does not support alt, try to make alt plot saved to image then reload image, not working. Eventually used plt, referencing chatgpt for 'Data' object has no attribute 'plot'. Read geo_data with gpd. 
+referencing chatgpt for scaling, i found out the matplotlib cannot adjust circle size based on counts level, circles are super big for some type-subtypes some are very small, adjusting by scaled trasformation.
 
 c. 
 ```{python}
-
+![Road Closure - Event Screenshot](Road Closure - Event.png)
 ```
+
+The area with latitude between 41.95~42 and longitude between -87.8~-87.7 has the alerts for road closures due to events most common.
 
 d. 
+question: Comapre the types of Accident-Major and Accident-Minor, do they have similar patterns?
 ```{python}
-
+![Accident-Major Screenshot](Accident Major.png)
+![Accident-Minor Screenshot](Accident Minor.png)
 ```
 
+Yes, majority of the top 10 counts areas of both Accident-Major and Accident-Minor types are gathered around the area with latitude between 41.95~41.80 and longitude between -87.7~-87.6. 
+
 e. 
+
+I would suggest to add a time column, which can help review teh information that in what period of time do the alerts for certain type-subtype happen more frequently.
 
 # App #2: Top Location by Alert Type and Hour Dashboard (20 points) {-}
 
