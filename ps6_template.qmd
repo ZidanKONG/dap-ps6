@@ -1,6 +1,6 @@
 ---
 title: "Problem Set 6 - Waze Shiny Dashboard"
-author: "Peter Ganong, Maggie Shi, and Andre Oviedo"
+author: "Zidan Kong"
 date: today
 format: 
   pdf:
@@ -24,9 +24,9 @@ We use (`*`) to indicate a problem that we think might be time consuming.
 # Steps to submit (10 points on PS6) {-}
 
 1. "This submission is my work alone and complies with the 30538 integrity
-policy." Add your initials to indicate your agreement: \*\*\ZK\*\*
-2. "I have uploaded the names of anyone I worked with on the problem set **[here](https://docs.google.com/forms/d/185usrCREQaUbvAXpWhChkjghdGgmAZXA3lPWpXLLsts/edit)**"  \*\*\ZK\*\* (2 point)
-3. Late coins used this pset: \*\*\ZK\*\* Late coins left after submission: \*\*\_\_\*\*
+policy." Add your initials to indicate your agreement: \*\*ZK\*\*
+2. "I have uploaded the names of anyone I worked with on the problem set **[here](https://docs.google.com/forms/d/185usrCREQaUbvAXpWhChkjghdGgmAZXA3lPWpXLLsts/edit)**"  \*\*ZK\*\* (2 point)
+3. Late coins used this pset: \*\*ZK\*\* Late coins left after submission: \*\*\_\_\*\*
 
 4. Before starting the problem set, make sure to read and agree to the terms of data usage for the Waze data [here](https://canvas.uchicago.edu/courses/59054/quizzes/130617).
 
@@ -74,6 +74,7 @@ from datetime import date
 import numpy as np
 alt.data_transformers.disable_max_rows() 
 
+alt.renderers.enable("png")
 import json
 ```
 
@@ -450,12 +451,12 @@ sorted_type_bin.to_csv('/Users/kongzidan/Documents/GitHub/DAP-PS6/sorted_type_bi
 ```
 
 ```{python}
-![Dropdown Screenshot](dropdown screeshot.png)
+![Dropdown Screenshot](/Users/kongzidan/Documents/GitHub/DAP-PS6/dropdown-screeshot.png)
 ```
 
 b. 
 ```{python}
-![Jam-Heavy traffic Screenshot](Jam-Heavy traffic dashboard.png)
+![Jam-Heavy traffic Screenshot](/Users/kongzidan/Documents/GitHub/DAP-PS6/Jam-Heavy-traffic-dashboard.png)
 ```
 
 referencing chatgpt for understanding shiny does not support alt, try to make alt plot saved to image then reload image, not working. Eventually used plt, referencing chatgpt for 'Data' object has no attribute 'plot'. Read geo_data with gpd. 
@@ -463,7 +464,7 @@ referencing chatgpt for scaling, i found out the matplotlib cannot adjust circle
 
 c. 
 ```{python}
-![Road Closure - Event Screenshot](Road Closure - Event.png)
+![Road Closure - Event Screenshot](/Users/kongzidan/Documents/GitHub/DAP-PS6/Road-Closure-Event.png)
 ```
 
 The area with latitude between 41.95~42 and longitude between -87.8~-87.7 has the alerts for road closures due to events most common.
@@ -471,8 +472,9 @@ The area with latitude between 41.95~42 and longitude between -87.8~-87.7 has th
 d. 
 question: Comapre the types of Accident-Major and Accident-Minor, do they have similar patterns?
 ```{python}
-![Accident-Major Screenshot](Accident Major.png)
-![Accident-Minor Screenshot](Accident Minor.png)
+![Accident-Major Screenshot](/Users/kongzidan/Documents/GitHub/DAP-PS6/Accident-Major.png)
+
+![Accident-Minor Screenshot](/Users/kongzidan/Documents/GitHub/DAP-PS6/Accident-Minor.png)
 ```
 
 Yes, majority of the top 10 counts areas of both Accident-Major and Accident-Minor types are gathered around the area with latitude between 41.95~41.80 and longitude between -87.7~-87.6. 
